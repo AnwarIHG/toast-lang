@@ -376,16 +376,17 @@ void TokenList_copy_LexerToken_2_Token(Token* token,const LexerToken* lexer_toke
   assert(token && lexer_token);
   printf("[INFO]:lexer_token->len: %d\n",lexer_token->len);
   token->len = lexer_token->len;
+  printf("[INFO]:token->len: %d\n",token->len);
   token->type.lexer = lexer_token->type;
   token->value = lexer_token->value != NULL ? calloc(lexer_token->len+1,sizeof *lexer_token->value) : NULL;
   if(token->value != NULL){
-    strncpy(lexer_token->value, lexer_token->value, lexer_token->len);
+    strncpy(token->value, lexer_token->value, lexer_token->len);
   }
 }
 
 void TokenList_copy_LexerTokenList_2_TokenList(TokenList* token_list,const LexerTokenList* lexer_token_list){
   for(size_t i =0; i < lexer_token_list->size; i++){
-    TokenList_copy_LexerToken_2_Token(token_list[i].items,lexer_token_list[i].items);
+    TokenList_copy_LexerToken_2_Token(&token_list->items[i],&lexer_token_list->items[i]);
   }
 }
 
@@ -459,11 +460,12 @@ int main(void){
   StringBuilder_distory(&sb);
 
   TokenList token_list = TokenList_convert_LexerTokenList_2_TokenList(&list);
+  LexerTokenList_distroy(&list);
 
   for (size_t i = 0; i < list.size; i++) {
-    printf("%s\n",list.items[i].value);
+    printf("%s\n",token_list.items[i].value);
   }
   
-  LexerTokenList_distroy(&list);
+  TokenList_distroy(&token_list);
   return 0;
 }
