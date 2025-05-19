@@ -374,9 +374,7 @@ TokenList TokenList_create(size_t size){
 
 void TokenList_copy_LexerToken_2_Token(Token* token,const LexerToken* lexer_token){
   assert(token && lexer_token);
-  printf("[INFO]:lexer_token->len: %d\n",lexer_token->len);
   token->len = lexer_token->len;
-  printf("[INFO]:token->len: %d\n",token->len);
   token->type.lexer = lexer_token->type;
   token->value = lexer_token->value != NULL ? calloc(lexer_token->len+1,sizeof *lexer_token->value) : NULL;
   if(token->value != NULL){
@@ -408,6 +406,9 @@ TokenList TokenList_convert_LexerTokenList_2_TokenList(LexerTokenList* lexer_lis
     lt = lexer_list->items[i];
 
     switch (lt.type) {
+      case LexerTokenType_END:
+        continue;
+        break;
       case LexerTokenType_SYMBOL:
         if(strcmp(lt.value, ";") == 0){
           token_list.items[i].type.token = TokenType_SEMICOLON;
@@ -421,9 +422,18 @@ TokenList TokenList_convert_LexerTokenList_2_TokenList(LexerTokenList* lexer_lis
           token_list.items[i].type.token = TokenType_CLOSE_BRACE;
         }else if(strcmp(lt.value, "=") == 0){
           token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strcmp(lt.value, "<") == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strcmp(lt.value, ">") == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strcmp(lt.value, "+") == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strcmp(lt.value, "-") == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
         }else {
           continue;
         }
+        break;
       case LexerTokenType_STRING:
         if(strcmp(lt.value, "if") == 0){
           token_list.items[i].type.token = TokenType_KEYWORD;
@@ -463,7 +473,11 @@ int main(void){
   LexerTokenList_distroy(&list);
 
   for (size_t i = 0; i < list.size; i++) {
-    printf("%s\n",token_list.items[i].value);
+    if(token_list.items[i].type.lexer == LexerTokenType_END){
+      printf("End\n");
+    }else{
+      printf("%s\n",token_list.items[i].value);
+    }
   }
   
   TokenList_distroy(&token_list);
