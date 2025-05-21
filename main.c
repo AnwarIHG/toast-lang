@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,7 +7,7 @@
 
 
 
-/* Functions */
+/* Utils */
 
 size_t string_len(const char* s){
   assert(s);
@@ -74,7 +75,7 @@ int strToInt(const char* str){
   return num;
 }
 
-/* Functions end */
+/* Utils end */
 
 /* Classes  */
 
@@ -136,13 +137,14 @@ void StringBuilder_distory(StringBuilder* sb) {
 // class Lexer
 
 typedef enum {
-  LexerTokenType_INVALID = 0,
-  LexerTokenType_END,
+  LexerTokenType_END = 0,
+  LexerTokenType_INVALID,
 
   LexerTokenType_STRING,
   LexerTokenType_SYMBOL,
   LexerTokenType_UNIQUE_UTF_8,
-  LexerTokenType_INTEGER_LITERAL,
+  LexerTokenType_NUMBER,
+  LexerTokenType_ENDLINE,
 } LexerTokenType;
 
 typedef struct{
@@ -229,7 +231,11 @@ LexerTokenList lexer(const StringBuilder *sb){
   for (size_t i = 0; i<sb->size; i++) {
     c = sb->value[i];
 
-    if(isspace(c)){
+    if (c == '\n'){
+      LexerTokenList_push(&token_list, LexerToken_create(LexerTokenType_ENDLINE,NULL));
+      continue;
+    }
+    else if(isspace(c)){
       continue;
     }
 
@@ -286,7 +292,7 @@ LexerTokenList lexer(const StringBuilder *sb){
 
       i--;
 
-      LexerTokenList_push(&token_list, LexerToken_create(LexerTokenType_INTEGER_LITERAL,(char*)buffer));
+      LexerTokenList_push(&token_list, LexerToken_create(LexerTokenType_NUMBER,(char*)buffer));
       clean_buffer(buffer);
       continue;
     }
@@ -309,9 +315,16 @@ LexerTokenList lexer(const StringBuilder *sb){
 // class Token
 
 typedef enum { 
-  TokenType_KEYWORD,
+
+  TokenType_KEYWORD = 0xFF,
   TokenType_IDENTIFIER,
  
+  TokenType_COMMENT_START,
+  TokenType_COMMENT,
+  TokenType_COMMENT_END,
+  TokenType_ENDLINE,
+
+
   TokenType_OPERATOR,
 
   TokenType_OPEN_PARENTHESES,
@@ -372,7 +385,7 @@ TokenList TokenList_create(size_t size){
   };
 }
 
-void TokenList_copy_LexerToken_2_Token(Token* token,const LexerToken* lexer_token){
+void TokenList_copy_LexerToken_to_Token(Token* token,const LexerToken* lexer_token){
   assert(token && lexer_token);
   token->len = lexer_token->len;
   token->type.lexer = lexer_token->type;
@@ -382,10 +395,96 @@ void TokenList_copy_LexerToken_2_Token(Token* token,const LexerToken* lexer_toke
   }
 }
 
-void TokenList_copy_LexerTokenList_2_TokenList(TokenList* token_list,const LexerTokenList* lexer_token_list){
+void TokenList_copy_LexerTokenList_to_TokenList(TokenList* token_list,const LexerTokenList* lexer_token_list){
   for(size_t i =0; i < lexer_token_list->size; i++){
-    TokenList_copy_LexerToken_2_Token(&token_list->items[i],&lexer_token_list->items[i]);
+    TokenList_copy_LexerToken_to_Token(&token_list->items[i],&lexer_token_list->items[i]);
   }
+}
+
+TokenList TokenList_convert_LexerTokenList_to_TokenList(const LexerTokenList* lexer_list){
+
+  TokenList token_list = TokenList_create(lexer_list->size);
+
+  TokenList_copy_LexerTokenList_to_TokenList(&token_list,lexer_list);
+
+  Token t;
+  for(size_t i = 0; i < token_list.size; i++){
+    t = token_list.items[i];
+
+    switch (t.type.lexer) {
+      case LexerTokenType_SYMBOL:
+        if(strncmp(t.value, ";",t.len) == 0){
+          token_list.items[i].type.token = TokenType_SEMICOLON;
+        }else if(strncmp(t.value, "(",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPEN_PARENTHESES;
+        }else if(strncmp(t.value, ")",t.len) == 0){
+          token_list.items[i].type.token = TokenType_CLOSE_PARENTHESES;
+        }else if(strncmp(t.value, "{",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPEN_BRACE;
+        }else if(strncmp(t.value, "}",t.len) == 0){
+          token_list.items[i].type.token = TokenType_CLOSE_BRACE;
+        }else if(strncmp(t.value, "=",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strncmp(t.value, "<",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strncmp(t.value, ">",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strncmp(t.value, "+",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        }else if(strncmp(t.value, "-",t.len) == 0){
+          token_list.items[i].type.token = TokenType_OPERATOR;
+        } //else if(strncmp(t.value, "/",t.len) == 0){
+        //   if(strncmp(t.value, "/",t.len) == 0){
+        //     if(strncmp(token_list.items[i].value, "/",token_list.items[i].len) == 0 &&
+        //       token_list.size > i+1
+        //     ){
+        //       i++;
+        //       if(strncmp(token_list.items[i].value,"/",token_list.items[i].len) == 0){
+        //         while(token_list.size > i && token_list.items[i].type.lexer == LexerTokenType_ENDLINE){
+        //           token_list.items[i++].type.token = TokenType_COMMENT;
+        //         }
+        //         if(token_list.items[i].type.lexer == LexerTokenType_ENDLINE)
+        //           token_list.items[i++].type.token = TokenType_COMMENT;
+        //       }
+        //     }
+        //   } else{
+        //     token_list.items[i].type.token = TokenType_OPERATOR;
+        //   }
+        // }
+        else { 
+          continue;
+        }
+        break;
+      case LexerTokenType_STRING:
+        if(strncmp(t.value, "if",t.len) == 0){
+          token_list.items[i].type.token = TokenType_KEYWORD;
+        }else if(strncmp(t.value, "else",t.len) == 0){
+          token_list.items[i].type.token = TokenType_KEYWORD;
+        }else if(strncmp(t.value, "struct",t.len) == 0){
+          token_list.items[i].type.token = TokenType_KEYWORD;
+        }else if(strncmp(t.value, "return",t.len) == 0){
+          token_list.items[i].type.token = TokenType_KEYWORD;
+        }else if(strncmp(t.value, "exit",t.len) == 0){
+          token_list.items[i].type.token = TokenType_KEYWORD;
+        }else {
+          token_list.items[i].type.token = TokenType_IDENTIFIER;
+        }
+        break;
+      case LexerTokenType_NUMBER:
+        token_list.items[i].type.token = TokenType_INTEGER_LITERAL;
+        break;
+      case LexerTokenType_ENDLINE:
+        token_list.items[i].type.token = TokenType_ENDLINE;
+        break;
+      default:
+        break;
+    }
+  }
+  return token_list;
+}
+
+const char* TokenList_to_asm(const TokenList* token_list){
+  return NULL;
 }
 
 void TokenList_distroy(TokenList* token_list){
@@ -396,90 +495,55 @@ void TokenList_distroy(TokenList* token_list){
   token_list->items = NULL;
 }
 
-TokenList TokenList_convert_LexerTokenList_2_TokenList(LexerTokenList* lexer_list){
-
-  TokenList token_list = TokenList_create(lexer_list->size);
-  TokenList_copy_LexerTokenList_2_TokenList(&token_list,lexer_list);
-
-  LexerToken lt;
-  for(size_t i = 0; i< lexer_list->size; i++){
-    lt = lexer_list->items[i];
-
-    switch (lt.type) {
-      case LexerTokenType_END:
-        continue;
-        break;
-      case LexerTokenType_SYMBOL:
-        if(strcmp(lt.value, ";") == 0){
-          token_list.items[i].type.token = TokenType_SEMICOLON;
-        }else if(strcmp(lt.value, "(") == 0){
-          token_list.items[i].type.token = TokenType_OPEN_PARENTHESES;
-        }else if(strcmp(lt.value, ")") == 0){
-          token_list.items[i].type.token = TokenType_CLOSE_PARENTHESES;
-        }else if(strcmp(lt.value, "{") == 0){
-          token_list.items[i].type.token = TokenType_OPEN_BRACE;
-        }else if(strcmp(lt.value, "}") == 0){
-          token_list.items[i].type.token = TokenType_CLOSE_BRACE;
-        }else if(strcmp(lt.value, "=") == 0){
-          token_list.items[i].type.token = TokenType_OPERATOR;
-        }else if(strcmp(lt.value, "<") == 0){
-          token_list.items[i].type.token = TokenType_OPERATOR;
-        }else if(strcmp(lt.value, ">") == 0){
-          token_list.items[i].type.token = TokenType_OPERATOR;
-        }else if(strcmp(lt.value, "+") == 0){
-          token_list.items[i].type.token = TokenType_OPERATOR;
-        }else if(strcmp(lt.value, "-") == 0){
-          token_list.items[i].type.token = TokenType_OPERATOR;
-        }else {
-          continue;
-        }
-        break;
-      case LexerTokenType_STRING:
-        if(strcmp(lt.value, "if") == 0){
-          token_list.items[i].type.token = TokenType_KEYWORD;
-        }else if(strcmp(lt.value, "else") == 0){
-          token_list.items[i].type.token = TokenType_KEYWORD;
-        }else if(strcmp(lt.value, "struct") == 0){
-          token_list.items[i].type.token = TokenType_KEYWORD;
-        }else if(strcmp(lt.value, "return") == 0){
-          token_list.items[i].type.token = TokenType_KEYWORD;
-        }else if(strcmp(lt.value, "exit") == 0){
-          token_list.items[i].type.token = TokenType_KEYWORD;
-        }else {
-          continue;
-        }
-        break;
-      default:
-        break;
-    }
-  }
-  return token_list;
-}
-
 // TokenList end
 
 // Token end
 
 /* Classes end */
 
+/* Function */
+// ...
+/* Function end*/
+
 int main(void){
   const char* file = "./file.txt";
+  const char* asm_output = "./out.s";
 
   StringBuilder sb = read_entire_file(file);
   LexerTokenList list = lexer(&sb);
   StringBuilder_distory(&sb);
 
-  TokenList token_list = TokenList_convert_LexerTokenList_2_TokenList(&list);
+  TokenList token_list = TokenList_convert_LexerTokenList_to_TokenList(&list);
   LexerTokenList_distroy(&list);
 
-  for (size_t i = 0; i < list.size; i++) {
-    if(token_list.items[i].type.lexer == LexerTokenType_END){
-      printf("End\n");
-    }else{
-      printf("%s\n",token_list.items[i].value);
+   for (size_t i = 0; i < token_list.size; i++) {
+    switch (token_list.items[i].type.token){
+      case TokenType_COMMENT_START:
+        printf("comment start\n");
+        while (token_list.items[i].type.token == TokenType_COMMENT) i++;
+        break;
+      case TokenType_COMMENT_END:
+        printf("comment end\n");
+        break;
+      case TokenType_KEYWORD:
+        if (strncmp(token_list.items[i].value,"exit",token_list.items[i].len) == 0){ 
+          i++;
+          if(token_list.items[i].type.token == TokenType_OPEN_PARENTHESES) i++;
+          if(token_list.items[i].type.token == TokenType_INTEGER_LITERAL){
+            printf("exit_value: %s\n",token_list.items[i].value);
+            i++;
+          }
+          if(token_list.items[i].type.token == TokenType_CLOSE_PARENTHESES)
+          {
+            printf("find you\n");
+          }
+        }
+        break;
+      default:
+        break;
     }
   }
-  
+
   TokenList_distroy(&token_list);
   return 0;
 }
